@@ -67,6 +67,33 @@ class FMAPP(CheckIn):
         msg = {"name": "米粒数量", "value": msg}
         return msg
 
+    @staticmethod
+    def member_info(headers):
+        try:
+            url = "https://fmapp.chinafamilymart.com.cn/api/app/member/personal/center"
+            response = requests.post(url=url, headers=headers, data=json.dumps({"cityName": "成都", "position": 4})).json()
+            code = response.get("code")
+            if code == "200":
+                data = response.get("data", {})
+                msg = '[\n会员积分:{}/{};\n会员到期时间:{};\n本月消费:{};\n本月节省:{};\n本月积分:{};\n全部积分:{};\n米粒统计:共计{}个米粒,其中{}个将于{}过期;]'.format(
+                    data.get("mifen"),
+                    data.get("mifenTotal"),
+                    data.get("zxEndDate"),
+                    data.get("monthInvoiceAmt"),
+                    data.get("monthSaveAmt"),
+                    data.get("monthTotPoints"),
+                    data.get("familyTotalPoint"),
+                    data.get("miliCount"),
+                    data.get("expireMiliNum"),
+                    data.get("expireDate"))
+            else:
+                msg = response.get("message")
+        except Exception as e:
+            print("错误信息", str(e))
+            msg = "未知错误，检查日志"
+        msg = {"name": "会员信息", "value": msg}
+        return msg
+
     def main(self):
         token = self.check_item.get("token")
         cookie = self.check_item.get("cookie")
@@ -93,7 +120,8 @@ class FMAPP(CheckIn):
         sign_msg = self.sign(headers=headers)
         name_msg = self.user_info(headers=headers)
         mili_msg = self.mili_count(headers=headers)
-        msg = [name_msg, sign_msg, mili_msg]
+        member_info = self.member_info(headers=headers)
+        msg = [name_msg, sign_msg, mili_msg, member_info]
         msg = "\n".join([f"{one.get('name')}: {one.get('value')}" for one in msg])
         return msg
 
