@@ -296,6 +296,8 @@ class BiliBili(CheckIn):
             share_ret = self.share_task(session=session, bili_jct=bili_jct, aid=aid)
             if share_ret.get("code") == 0:
                 share_msg = f"分享《{title}》成功"
+            elif share_ret.get("code") == 71000:
+                share_msg = f"重复分享"
             else:
                 share_msg = f"分享失败"
                 print(share_msg)
