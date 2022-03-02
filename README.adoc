@@ -1,0 +1,5 @@
+= daily_check_in
+
+代码来自daily_check_in工程，在其他之上进行部分适配修改，主要是增加了一些提醒信息。
+
+link:https://github.com/datugou/daily_check_in[跳转]
