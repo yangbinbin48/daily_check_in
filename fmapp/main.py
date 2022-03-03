@@ -3,6 +3,7 @@ import json
 import os
 
 import requests
+import subprocess
 
 from dailycheckin import CheckIn
 
@@ -73,6 +74,44 @@ class FMAPP(CheckIn):
         return msg
 
     @staticmethod
+    def get_local_city():
+        pro = subprocess.run(['curl', 'cip.cc'], capture_output=True)
+        ret = pro.stdout.decode().strip()
+        lines = ret.split('\n')
+        for line in lines:
+            if '地址' in line:
+                tt = line.split(' ')
+                return tt[len(tt) - 1]
+        return '成都'
+
+    @staticmethod
+    def mili_change_list(headers):
+        try:
+            url = "https://fmapp.chinafamilymart.com.cn/api/app/oms/v2/mili/service/category/product/list"
+            data = {
+                'cityCd': FMAPP.get_local_city(),
+                'couponIds': [
+                    '11720', '11713', '11721', '11714', '11662', '11622', '11715', '11716', '11717', '12014', '11718', '11719', '12016', '12011', '12012', '12013'
+                ]
+            }
+            response = requests.post(url=url, headers=headers, data=json.dumps(data)).json()
+            code = response.get("code")
+            if code == "200":
+                data = response.get("data", {})
+                msg = '\n==============\n'
+                for item in data:
+                    cnt_left = item['inventoryNum'] - item['gainNum']
+                    if cnt_left > 0:
+                        msg += f'名称: {item["name"]};\n尊享米粒价: {item["zxPrice"]};\n集享米粒价: {item["jxPrice"]},\n原价: {item["price"]};\n剩余数量: {cnt_left};\n==============\n'
+            else:
+                msg = response.get("message")
+        except Exception as e:
+            print("错误信息", str(e))
+            msg = "未知错误，检查日志"
+        msg = {"name": "米粒兑换信息", "value": msg}
+        return msg
+
+    @staticmethod
     def member_info(headers):
         try:
             url = "https://fmapp.chinafamilymart.com.cn/api/app/member/personal/center"
@@ -80,7 +119,7 @@ class FMAPP(CheckIn):
             code = response.get("code")
             if code == "200":
                 data = response.get("data", {})
-                msg = '[\n会员积分:{}/{};\n会员到期时间:{};\n本月消费:{};\n本月节省:{};\n本月积分:{};\n全部积分:{};\n米粒统计:共计{}个米粒,其中{}个将于{}过期;]'.format(
+                msg = '\n==============\n会员积分:{}/{};\n会员到期时间:{};\n本月消费:{};\n本月节省:{};\n本月积分:{};\n全部积分:{};\n米粒统计:共计{}个米粒,其中{}个将于{}过期;\n=============='.format(
                     data.get("mifen"),
                     data.get("mifenTotal"),
                     data.get("zxEndDate"),
@@ -126,7 +165,8 @@ class FMAPP(CheckIn):
         name_msg = self.user_info(headers=headers)
         mili_msg = self.mili_count(headers=headers)
         member_info = self.member_info(headers=headers)
-        msg = [name_msg, sign_msg, mili_msg, member_info]
+        mili_change_msg = self.mili_change_list(headers=headers)
+        msg = [name_msg, sign_msg, mili_msg, member_info, mili_change_msg]
         msg = "\n".join([f"{one.get('name')}: {one.get('value')}" for one in msg])
         return msg
 
