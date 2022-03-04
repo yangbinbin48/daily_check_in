@@ -2,9 +2,9 @@
 
 cur_dir=`pwd`
 
-python=`which python`
+python=`which python3`
 if [ -z "$python" ];then
-  python=`which python3`
+  python=`which python`
 fi
 
 echo "#!/bin/bash
