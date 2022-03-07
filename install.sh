@@ -7,9 +7,13 @@ if [ -z "$python" ];then
   python=`which python`
 fi
 
+app_name='dailycheckin2'
+
 echo "#!/bin/bash
 ${python} ${cur_dir}/main.py "\$\@"
-"> dailycheckin
+"> $app_name
 
-chmod +x dailycheckin
-mv -f dailycheckin /usr/bin/dailycheckin
+chmod +x $app_name
+
+sh ./uninstall.sh
+mv -f $app_name /usr/bin/
