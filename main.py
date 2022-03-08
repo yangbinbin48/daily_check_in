@@ -17,25 +17,34 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--include", nargs="+", help="任务执行包含的任务列表")
     parser.add_argument("--exclude", nargs="+", help="任务执行排除的任务列表")
+    parser.add_argument("-f", "--file", nargs=1, help="config.json文件的路径")
     return parser.parse_args()
 
 
-def check_config(task_list):
+def check_config(task_list, config_file_path=None):
     config_path = None
     config_path_list = []
-    for one_path in [
-        "/ql/scripts/config.json",
-        "config.json",
-        "../config.json",
-        "./config/config.json",
-        "../config/config.json",
-        "/config.json",
-    ]:
-        _config_path = os.path.join(os.getcwd(), one_path)
-        if os.path.exists(_config_path):
-            config_path = os.path.normpath(_config_path)
-            break
-        config_path_list.append(os.path.normpath(os.path.dirname(_config_path)))
+    if config_file_path is None:
+        for one_path in [
+            "/ql/scripts/config.json",
+            "config.json",
+            "../config.json",
+            "./config/config.json",
+            "../config/config.json",
+            "/config.json",
+        ]:
+            _config_path = os.path.join(os.getcwd(), one_path)
+            if os.path.exists(_config_path):
+                config_path = os.path.normpath(_config_path)
+                break
+            config_path_list.append(os.path.normpath(os.path.dirname(_config_path)))
+    else:
+        _config_path=config_file_path[0]
+        if os.path.exists(_config_path) is False:
+            print(f"给定的配置文件不存在: {_config_path}")
+            return False, False
+        config_path = _config_path
+
     if config_path:
         print("使用配置文件路径:", config_path)
         with open(config_path, "r", encoding="utf-8") as f:
@@ -86,6 +95,7 @@ def checkin():
     args = parse_arguments()
     include = args.include
     exclude = args.exclude
+    config_file = args.file
     if not include:
         include = list(checkin_map.keys())
     else:
@@ -95,7 +105,7 @@ def checkin():
     else:
         exclude = [one for one in exclude if one in checkin_map.keys()]
     task_list = list(set(include) - set(exclude))
-    notice_info, check_info = check_config(task_list)
+    notice_info, check_info = check_config(task_list, config_file)
     if check_info:
         task_name_str = "\n".join(
             [f"「{checkin_map.get(one.upper())[0]}」账号数 : {len(value)}" for one, value in check_info.items()]
