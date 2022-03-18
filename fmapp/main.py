@@ -23,12 +23,14 @@ class FMAPP(CheckIn):
             if code == "200":
                 data = response.get("data", {})
                 next_type = data.get("nextGrantType")
-                if next_type == 1:
-                    next_type = "发米粒"
-                else:
-                    next_type = "会员成长值"
+                cur_type = data.get("currentGrantType")
+                type_map = {
+                    1: "发米粒",
+                    7: '会员成长值'
+                }
                 msg = (
-                    f"在坚持{data.get('nextDay')}天即可获得{data.get('nextNumber')}个{next_type}, "
+                    f"本次获得{data.get('currentNumber')}个{type_map[cur_type]}, "
+                    f"在坚持{data.get('nextDay')}天即可获得{data.get('nextNumber')}个{type_map[next_type]}, "
                     f"签到{data.get('lastDay')}天可获得{data.get('lastNumber')}个发米粒"
                 )
             else:
