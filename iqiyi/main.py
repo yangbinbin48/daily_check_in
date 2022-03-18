@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
+import hashlib
 import json
 import os
+import random
 import re
+import string
 import time
 from urllib.parse import unquote
 
@@ -21,7 +24,21 @@ class IQIYI(CheckIn):
         p00001 = re.findall(r"P00001=(.*?);", cookie)[0] if re.findall(r"P00001=(.*?);", cookie) else ""
         p00002 = re.findall(r"P00002=(.*?);", cookie)[0] if re.findall(r"P00002=(.*?);", cookie) else ""
         p00003 = re.findall(r"P00003=(.*?);", cookie)[0] if re.findall(r"P00003=(.*?);", cookie) else ""
-        return p00001, p00002, p00003
+        dfp = re.findall(r"dfp=(.*?);", cookie)[0] if re.findall(r"dfp=(.*?);", cookie) else ""
+        return p00001, p00002, p00003, dfp
+
+    @staticmethod
+    def md5(data):
+        return hashlib.md5(bytes(data, encoding="utf-8")).hexdigest()
+
+    def get_sign(self, c, t, e=None):
+        buf = []
+        for key, value in t.items():
+            buf.append("=".join([key, str(value)]))
+        if e is not None:
+            buf.append(e)
+            return self.md5(c.join(buf))
+        return c.join(buf)
 
     @staticmethod
     def user_information(p00001):
@@ -77,6 +94,77 @@ class IQIYI(CheckIn):
                 msg = [{"name": "当月成长", "value": str(e)}]
         else:
             msg = [{"name": "当月成长", "value": res.get("msg")}]
+        return msg
+
+    def sign2(self, p00001, p00003):
+        sign_date = {
+            "agentType": "1",
+            "agentversion": "1.0",
+            "appKey": "basic_pcw",
+            "authCookie": p00001,
+            "qyid": self.md5("".join(random.sample(string.ascii_letters + string.digits, 16))),
+            "task_code": "natural_month_sign",
+            "timestamp": round(time.time() * 1000),
+            "typeCode": "point",
+            "userId": p00003,
+        }
+        post_date = {
+            "natural_month_sign": {
+                "agentType": "1",
+                "agentversion": "1",
+                "authCookie": p00001,
+                "qyid": self.md5("".join(random.sample(string.ascii_letters + string.digits, 16))),
+                "taskCode": "iQIYI_mofhr",
+                "verticalCode": "iQIYI",
+            }
+        }
+        sign = self.get_sign("|", sign_date, "UKobMjDMsDoScuWOfp6F")
+        url = f"https://community.iqiyi.com/openApi/task/execute?{self.get_sign('&', sign_date)}&sign={sign}"
+        header = {"Content-Type": "application/json"}
+        res = requests.post(url, headers=header, data=json.dumps(post_date)).json()
+        if res["code"] == "A00000":
+            if res["data"]["code"] == "A0000":
+                # quantity = res["data"]["data"]["rewards"][0]["rewardCount"]  # 积分
+                # addgrowthvalue = res["data"]["data"]["rewards"][0]["rewardCount"]  # 新增成长值
+                # continued = res["data"]["data"]["signDays"]  # 签到天数
+                msg = [{"name": "APP 签到", "value": "签到成功"}]
+            else:
+                msg = [{"name": "APP 签到", "value": f"签到失败:{res['data']['msg']}"}]
+        else:
+            msg = [{"name": "APP 签到", "value": f"签到失败:{res['message']}"}]
+        return msg
+
+    def web_sign(self, p00001, p00003, dfp):
+        dfp = dfp.split("@")[0]
+        web_sign_date = {
+            "agenttype": "1",
+            "agentversion": "0",
+            "appKey": "basic_pca",
+            "appver": "0",
+            "authCookie": p00001,
+            "channelCode": "sign_pcw",
+            "dfp": dfp,
+            "scoreType": "1",
+            "srcplatform": "1",
+            "typeCode": "point",
+            "userId": p00003,
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+            "verticalCode": "iQIYI",
+        }
+
+        sign = self.get_sign("|", web_sign_date, "DO58SzN6ip9nbJ4QkM8H")
+        url = f"https://community.iqiyi.com/openApi/score/add?{self.get_sign('&', web_sign_date)}&sign={sign}"
+        res = requests.get(url).json()
+        if res["code"] == "A00000":
+            if res["data"][0]["code"] == "A0000":
+                quantity = res["data"][0]["score"]
+                continued = res["data"][0]["continuousValue"]
+                msg = [{"name": "WEB 签到", "value": f"积分+{quantity} 累计签到{continued}天"}]
+
+            else:
+                msg = [{"name": "WEB 签到", "value": f"网页端签到失败:{res['data'][0]['message']}"}]
+        else:
+            msg = [{"name": "WEB 签到", "value": f"网页端签到失败:{res['message']}"}]
         return msg
 
     @staticmethod
@@ -176,8 +264,10 @@ class IQIYI(CheckIn):
         return {"status": False, "msg": msg, "chance": 0}
 
     def main(self):
-        p00001, p00002, p00003 = self.parse_cookie(self.check_item.get("cookie"))
+        p00001, p00002, p00003, dfp = self.parse_cookie(self.check_item.get("cookie"))
         sign_msg = self.sign(p00001=p00001)
+        web_sign_msg = self.web_sign(p00001=p00001, p00003=p00003, dfp=dfp)
+        sign2_msg = self.sign2(p00001=p00001, p00003=p00003)
         chance = self.draw(0, p00001=p00001, p00003=p00003)["chance"]
         if chance:
             draw_msg = ""
@@ -204,16 +294,18 @@ class IQIYI(CheckIn):
         user_msg = self.user_information(p00001=p00001)
 
         msg = (
-            [
-                {"name": "用户账号", "value": user_name},
-                {"name": "用户昵称", "value": nickname},
-            ]
-            + user_msg
-            + sign_msg
-            + [
-                task_msg,
-                {"name": "抽奖奖励", "value": draw_msg},
-            ]
+                [
+                    {"name": "用户账号", "value": user_name},
+                    {"name": "用户昵称", "value": nickname},
+                ]
+                + user_msg
+                + sign_msg
+                + web_sign_msg
+                + sign2_msg
+                + [
+                    task_msg,
+                    {"name": "抽奖奖励", "value": draw_msg},
+                ]
         )
         msg = "\n".join([f"{one.get('name')}: {one.get('value')}" for one in msg])
         return msg
