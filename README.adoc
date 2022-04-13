@@ -14,6 +14,9 @@ link:https://github.com/Sitoi/DailyCheckIn[点此跳转原项目]
 # 执行脚本 - 与原版保持一致
 dailycheckin2
 
+# 指定配置文件
+dailycheckin2 -f xxx.json
+
 # 卸载
 ./uninstall.sh
 ----
