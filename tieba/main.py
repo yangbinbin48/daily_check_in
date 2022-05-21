@@ -22,7 +22,7 @@ class Tieba(CheckIn):
 
     def valid(self, session):
         try:
-            content = session.get(url="http://tieba.baidu.com/dc/common/tbs")
+            content = session.get(url="https://tieba.baidu.com/dc/common/tbs")
         except Exception as e:
             return False, f"登录验证异常,错误信息: {e}"
         data = json.loads(content.text)
@@ -34,7 +34,7 @@ class Tieba(CheckIn):
 
     @staticmethod
     def tieba_list_more(session):
-        content = session.get(url="http://tieba.baidu.com/f/like/mylike?&pn=1", timeout=(5, 20), allow_redirects=False)
+        content = session.get(url="https://tieba.baidu.com/f/like/mylike?&pn=1", timeout=(5, 20), allow_redirects=False)
         try:
             pn = int(re.match(r".*/f/like/mylike\?&pn=(.*?)\">尾页.*", content.text, re.S | re.I).group(1))
         except Exception as e:
@@ -47,7 +47,7 @@ class Tieba(CheckIn):
                 yield x
             next_page += 1
             content = session.get(
-                url=f"http://tieba.baidu.com/f/like/mylike?&pn={next_page}", timeout=(5, 20), allow_redirects=False
+                url=f"https://tieba.baidu.com/f/like/mylike?&pn={next_page}", timeout=(5, 20), allow_redirects=False
             )
 
     def get_tieba_list(self, session):
@@ -61,7 +61,7 @@ class Tieba(CheckIn):
             md5 = hashlib.md5(f"kw={tb_name}tbs={tbs}tiebaclient!!!".encode("utf-8")).hexdigest()
             data = {"kw": tb_name, "tbs": tbs, "sign": md5}
             try:
-                response = session.post(url="http://c.tieba.baidu.com/c/c/forum/sign", data=data).json()
+                response = session.post(url="https://c.tieba.baidu.com/c/c/forum/sign", data=data,verify=False).json()
                 if response["error_code"] == "0":
                     success_count += 1
                 elif response["error_code"] == "160002":
